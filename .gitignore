@@ -7,3 +7,4 @@ dist/
 Thumbs.db
 dev-server*.log
 public/debug/
+.claude/
