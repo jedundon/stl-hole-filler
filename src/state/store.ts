@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ExportArtifact, MeshData, Selection, Toast } from "../types";
-import { detectRecessSelection } from "../geometry/recess/detect";
+import { detectRecessSelection, detectSimilarSelectionsOnPlane } from "../geometry/recess/detect";
 import { normalizeMesh } from "../geometry/stl/normalize";
 import { parseStl } from "../geometry/stl/parser";
 import { exportSelections } from "../export/exportFlow";
@@ -19,6 +19,7 @@ interface AppState {
   exportArtifact: ExportArtifact | null;
   loadFile: (file: File) => Promise<void>;
   addSelectionFromFace: (faceIndex: number, point?: [number, number, number]) => void;
+  addSimilarSelectionsOnPlane: () => void;
   removeSelection: (id: string) => void;
   updateSelection: (id: string, patch: Partial<Selection>) => void;
   setDefaultDepth: (depth: number) => void;
@@ -83,6 +84,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     revokeExportArtifact(get().exportArtifact);
     set({ selections: [...selections, selection], exportArtifact: null });
+  },
+
+  addSimilarSelectionsOnPlane() {
+    const { mesh, selections, defaultDepth } = get();
+    const reference = selections[selections.length - 1];
+    if (!mesh || !reference) {
+      setToast(set, "Select one recessed area first.", "warning");
+      return;
+    }
+
+    const matches = detectSimilarSelectionsOnPlane(mesh, reference, selections, defaultDepth);
+    if (matches.length === 0) {
+      setToast(set, "No other matching recessed regions found on that plane.", "warning");
+      return;
+    }
+
+    revokeExportArtifact(get().exportArtifact);
+    set({ selections: [...selections, ...matches], exportArtifact: null });
+    setToast(set, `Added ${matches.length} similar ${matches.length === 1 ? "fill" : "fills"} on this plane.`, "success");
   },
 
   removeSelection(id) {

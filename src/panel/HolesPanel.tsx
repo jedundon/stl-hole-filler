@@ -1,4 +1,4 @@
-import { Download, SlidersHorizontal } from "lucide-react";
+import { CopyPlus, Download, SlidersHorizontal } from "lucide-react";
 import { useAppStore } from "../state/store";
 import { DepthControl } from "./DepthControl";
 import { HoleRow } from "./HoleRow";
@@ -8,6 +8,7 @@ export function HolesPanel() {
   const defaultDepth = useAppStore((state) => state.defaultDepth);
   const setDefaultDepth = useAppStore((state) => state.setDefaultDepth);
   const exportToFile = useAppStore((state) => state.exportToFile);
+  const addSimilarSelectionsOnPlane = useAppStore((state) => state.addSimilarSelectionsOnPlane);
   const isExporting = useAppStore((state) => state.isExporting);
   const hasModel = useAppStore((state) => Boolean(state.mesh));
   const exportArtifact = useAppStore((state) => state.exportArtifact);
@@ -26,6 +27,15 @@ export function HolesPanel() {
         <span>Default depth</span>
         <DepthControl value={defaultDepth} onChange={setDefaultDepth} />
       </div>
+
+      {selections.length > 0 && (
+        <div className="bulk-actions">
+          <button className="bulk-action-button" onClick={addSimilarSelectionsOnPlane}>
+            <CopyPlus size={16} />
+            <span>Select similar on plane</span>
+          </button>
+        </div>
+      )}
 
       {selections.length === 0 ? (
         <div className="empty-panel">

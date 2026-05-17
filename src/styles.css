@@ -219,7 +219,7 @@ button {
 
 .holes-panel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
   min-width: 0;
   min-height: 0;
   border-left: 1px solid #d9dee5;
@@ -257,6 +257,32 @@ button {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.bulk-actions {
+  padding: 12px 18px;
+  border-bottom: 1px solid #e2e6ec;
+}
+
+.bulk-action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #cfd8e6;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #273142;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+}
+
+.bulk-action-button:hover {
+  border-color: #96a5b8;
+  background: #f4f7fb;
 }
 
 .depth-control {

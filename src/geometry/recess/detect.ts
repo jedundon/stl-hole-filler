@@ -8,6 +8,7 @@ const NORMAL_COS_TOLERANCE = Math.cos((12 * Math.PI) / 180);
 const MIN_BOUNDARY_ANGLE = (28 * Math.PI) / 180;
 const MAX_REGION_FACES = 25000;
 const MIN_PLANE_TOLERANCE = 0.025;
+const PLANE_MATCH_COS_TOLERANCE = Math.cos((8 * Math.PI) / 180);
 
 export function detectRecessSelection(
   mesh: MeshData,
@@ -30,6 +31,49 @@ export function detectRecessSelection(
   return null;
 }
 
+export function detectSimilarSelectionsOnPlane(
+  mesh: MeshData,
+  reference: Selection,
+  existingSelections: Selection[],
+  defaultDepth: number,
+): Selection[] {
+  const visited = new Set<number>();
+  const existingFaces = new Set(existingSelections.flatMap((selection) => selection.faceIndices));
+  const matches: Selection[] = [];
+  const referenceNormal = reference.plane.normal as Vec3;
+  const referenceOrigin = reference.plane.origin as Vec3;
+  const referenceFloorOffset = averageSignedDistance(mesh, reference.faceIndices, referenceOrigin, referenceNormal);
+  const planeTolerance = Math.max(MIN_PLANE_TOLERANCE, modelDiagonal(mesh) * 0.0015);
+  const floorTolerance = Math.max(0.08, planeTolerance * 3);
+
+  for (let face = 0; face < mesh.triangleCount; face += 1) {
+    if (visited.has(face) || existingFaces.has(face)) {
+      continue;
+    }
+
+    const region = floodPlanarRegion(mesh, face);
+    region.forEach((regionFace) => visited.add(regionFace));
+    if (region.some((regionFace) => existingFaces.has(regionFace))) {
+      continue;
+    }
+
+    const selection = buildSelectionFromRegion(mesh, region, existingSelections.length + matches.length, defaultDepth);
+    if (!selection) {
+      continue;
+    }
+
+    if (
+      dot(selection.plane.normal as Vec3, referenceNormal) >= PLANE_MATCH_COS_TOLERANCE &&
+      Math.abs(dot(sub(selection.plane.origin as Vec3, referenceOrigin), referenceNormal)) <= planeTolerance &&
+      Math.abs(averageSignedDistance(mesh, selection.faceIndices, referenceOrigin, referenceNormal) - referenceFloorOffset) <= floorTolerance
+    ) {
+      matches.push(selection);
+    }
+  }
+
+  return matches;
+}
+
 function buildSelectionFromSeed(
   mesh: MeshData,
   faceIndex: number,
@@ -37,6 +81,15 @@ function buildSelectionFromSeed(
   defaultDepth: number,
 ): Selection | null {
   const faceIndices = floodPlanarRegion(mesh, faceIndex);
+  return buildSelectionFromRegion(mesh, faceIndices, index, defaultDepth);
+}
+
+function buildSelectionFromRegion(
+  mesh: MeshData,
+  faceIndices: number[],
+  index: number,
+  defaultDepth: number,
+): Selection | null {
   if (faceIndices.length < 2) {
     return null;
   }
@@ -235,6 +288,11 @@ function averageCentroid(mesh: MeshData, faceIndices: number[]): Vec3 {
     center[2] += centroid[2];
   });
   return [center[0] / faceIndices.length, center[1] / faceIndices.length, center[2] / faceIndices.length];
+}
+
+function averageSignedDistance(mesh: MeshData, faceIndices: number[], origin: Vec3, normal: Vec3) {
+  const center = averageCentroid(mesh, faceIndices);
+  return dot(sub(center, origin), normal);
 }
 
 function getFaceCentroid(mesh: MeshData, faceIndex: number): Vec3 {
