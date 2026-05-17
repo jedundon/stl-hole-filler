@@ -38,6 +38,22 @@ export interface Selection {
 export interface FillMesh {
   vertices: number[];
   triangles: number[];
+  groups: {
+    topCap: FillMeshIndexGroup;
+    bottomCap: FillMeshIndexGroup;
+    sideWalls: FillMeshIndexGroup;
+  };
+  topLoopRanges: FillMeshLoopRange[];
+}
+
+export interface FillMeshIndexGroup {
+  start: number;
+  count: number;
+}
+
+export interface FillMeshLoopRange {
+  start: number;
+  count: number;
 }
 
 export interface Toast {

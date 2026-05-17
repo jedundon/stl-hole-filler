@@ -3,8 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense } from "react";
 import { Color, MOUSE } from "three";
 import { useAppStore } from "../state/store";
-import { FillOverlay } from "./FillOverlay";
-import { FillSolid } from "./FillSolid";
+import { FillPreview } from "./FillPreview";
 import { ModelMesh } from "./ModelMesh";
 
 export function Viewport() {
@@ -31,10 +30,7 @@ export function Viewport() {
               <ModelMesh />
               {selections.map((selection) =>
                 selection.visible ? (
-                  <group key={selection.id}>
-                    <FillOverlay selection={selection} />
-                    <FillSolid selection={selection} />
-                  </group>
+                  <FillPreview key={selection.id} selection={selection} />
                 ) : null,
               )}
             </group>
