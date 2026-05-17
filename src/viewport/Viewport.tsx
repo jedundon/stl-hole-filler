@@ -6,8 +6,7 @@ import { Color, MOUSE, PerspectiveCamera, Quaternion, Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useAppStore } from "../state/store";
 import type { MeshData } from "../types";
-import { FillOverlay } from "./FillOverlay";
-import { FillSolid } from "./FillSolid";
+import { FillPreview } from "./FillPreview";
 import { ModelMesh } from "./ModelMesh";
 
 interface ViewActions {
@@ -84,10 +83,7 @@ export function Viewport() {
                 <ModelMesh />
                 {selections.map((selection) =>
                   selection.visible ? (
-                    <group key={selection.id}>
-                      <FillOverlay selection={selection} />
-                      <FillSolid selection={selection} />
-                    </group>
+                    <FillPreview key={selection.id} selection={selection} />
                   ) : null,
                 )}
               </group>

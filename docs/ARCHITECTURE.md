@@ -32,8 +32,7 @@ src/
 ├── viewport/                Everything inside the 3D canvas
 │   ├── Viewport.tsx         R3F <Canvas>, camera, lighting
 │   ├── ModelMesh.tsx        Renders the loaded STL
-│   ├── FillOverlay.tsx      Renders the per-selection surface highlight
-│   ├── FillSolid.tsx        Renders the per-selection extruded preview
+│   ├── FillPreview.tsx      Renders the generated fill cap, x-ray volume, and boundary outline
 │   ├── HoverHighlight.tsx   Live recess preview on hover
 │   └── interaction.ts       Raycasting + click/hover handlers
 │
@@ -113,7 +112,7 @@ recess/plane.ts: fit a plane from the loop vertices + a ring of
 state.selections.push({ loop, plane, depth, color, id })
    │
    ▼
-FillOverlay (uses face set) + FillSolid (uses extrude.ts)
+FillPreview renders grouped geometry from extrude.ts
    ▼
 On export: workers/export.worker.ts assembles 3MF from
             state.model.geometry + selections.map(extrude)
@@ -191,6 +190,8 @@ Tolerances are constants we'll tune; expose them in dev-mode only.
 5. **Outer side walls**: quad strip between the outer top ring and the outer bottom ring, split into triangles. Winding is set so the wall normals point *outward* from the prism volume.
 6. **Inner side walls**: quad strip for each inner loop between its top and bottom rings, with winding *reversed* compared to the outer walls — the inner walls' normals point *inward toward the hole*, i.e., still outward relative to the prism's solid volume.
 7. Verify watertightness: every edge in the final mesh should be used by exactly two triangles. Assert in dev, log + best-effort in prod.
+
+The generated mesh records index groups for the top cap, bottom cap, and side walls. Export writes the full vertex/index arrays directly, while the viewport uses the groups to render the top cap near-opaque and the depth volume as a faint x-ray. The boundary outline is built from the generated top-loop vertices, so preview and export stay tied to the same geometry.
 
 The top cap sits flush with the outer surface; the bottom cap sits inside the body, well below the floor of the recess. The overlap with the original mesh is intentional — slicers resolve this by giving the fill part's color priority in the overlap region.
 

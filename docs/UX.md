@@ -50,7 +50,7 @@ Model visible, orbit/pan/zoom enabled. Holes panel shows: "Click a recessed area
 
 ### 4. Active (one or more selections)
 
-Holes panel lists each selection as a row. Each selection rendered in the viewport as a translucent colored overlay on the original mesh. Export button enabled.
+Holes panel lists each selection as a row. Each selection renders in the viewport as generated fill geometry: an opaque colored surface at the opening plane, a faint x-ray volume showing depth, and a crisp boundary outline. Export button enabled.
 
 ### Error states
 
@@ -73,9 +73,10 @@ This is the make-or-break interaction. Get it right and the app feels magical; g
 ### Visual language for selections
 
 - Each selection gets a distinct color from a categorical palette (8 colors, then repeats with a stripe pattern).
-- The colored region is rendered at ~50% opacity over the original mesh.
-- The fill *solid* (the extrusion) is rendered at ~25% opacity in the same color, visible through the model so the user can see how deep it goes.
-- A subtle wireframe outline traces the boundary loop of the selected recess at full opacity.
+- The generated fill cap is rendered near-opaque at the opening plane so the recess reads as filled.
+- The fill volume is rendered as a faint x-ray extrusion in the same color so the user can see how deep it goes.
+- A subtle wireframe outline traces the generated top cap boundary at full opacity.
+- Selected-fill preview meshes do not capture pointer events; clicks still target the original model for add/remove behavior.
 
 ### Cursor
 

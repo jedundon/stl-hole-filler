@@ -1,6 +1,6 @@
 import earcut from "earcut";
 import { BufferAttribute, BufferGeometry } from "three";
-import type { FillMesh, MeshData, Selection } from "../../types";
+import type { FillMesh, FillMeshLoopRange, MeshData, Selection } from "../../types";
 import {
   add,
   basisFromNormal,
@@ -22,11 +22,13 @@ export function buildFillMesh(mesh: MeshData, selection: Selection): FillMesh {
   const vertices3d: Vec3[] = [];
   const vertices2d: number[] = [];
   const holeIndices: number[] = [];
+  const topLoopRanges: FillMeshLoopRange[] = [];
 
   loops.forEach((loop, loopIndex) => {
     if (loopIndex > 0) {
       holeIndices.push(vertices3d.length);
     }
+    topLoopRanges.push({ start: vertices3d.length, count: loop.length });
     loop.forEach((vertexIndex) => {
       const base = getVertex(mesh.positions, vertexIndex);
       const surfaceOffset = dot(sub(origin, base), normal);
@@ -50,11 +52,19 @@ export function buildFillMesh(mesh: MeshData, selection: Selection): FillMesh {
   if (cap.length === 0) {
     throw new Error("Could not triangulate fill cap.");
   }
+  const topCapStart = triangles.length;
   for (let i = 0; i < cap.length; i += 3) {
     triangles.push(cap[i], cap[i + 1], cap[i + 2]);
+  }
+  const topCapCount = triangles.length - topCapStart;
+
+  const bottomCapStart = triangles.length;
+  for (let i = 0; i < cap.length; i += 3) {
     triangles.push(bottomOffset + cap[i + 2], bottomOffset + cap[i + 1], bottomOffset + cap[i]);
   }
+  const bottomCapCount = triangles.length - bottomCapStart;
 
+  const sideWallsStart = triangles.length;
   let cursor = 0;
   loops.forEach((loop, loopIndex) => {
     const count = loop.length;
@@ -72,12 +82,19 @@ export function buildFillMesh(mesh: MeshData, selection: Selection): FillMesh {
     }
     cursor += count;
   });
+  const sideWallsCount = triangles.length - sideWallsStart;
 
   assertWatertight(triangles);
 
   return {
     vertices: vertices3d.flatMap((point) => point),
     triangles,
+    groups: {
+      topCap: { start: topCapStart, count: topCapCount },
+      bottomCap: { start: bottomCapStart, count: bottomCapCount },
+      sideWalls: { start: sideWallsStart, count: sideWallsCount },
+    },
+    topLoopRanges,
   };
 }
 
@@ -107,6 +124,10 @@ export function makeThreeFillGeometry(fill: FillMesh) {
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new BufferAttribute(new Float32Array(fill.vertices), 3));
   geometry.setIndex(fill.triangles);
+  geometry.clearGroups();
+  geometry.addGroup(fill.groups.topCap.start, fill.groups.topCap.count, 0);
+  geometry.addGroup(fill.groups.bottomCap.start, fill.groups.bottomCap.count, 1);
+  geometry.addGroup(fill.groups.sideWalls.start, fill.groups.sideWalls.count, 1);
   geometry.computeVertexNormals();
   return geometry;
 }
