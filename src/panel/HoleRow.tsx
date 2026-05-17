@@ -5,14 +5,27 @@ import { DepthControl } from "./DepthControl";
 
 interface HoleRowProps {
   selection: Selection;
+  isBatchEditing?: boolean;
+  isChecked?: boolean;
 }
 
-export function HoleRow({ selection }: HoleRowProps) {
+export function HoleRow({ selection, isBatchEditing = false, isChecked = false }: HoleRowProps) {
   const updateSelection = useAppStore((state) => state.updateSelection);
   const removeSelection = useAppStore((state) => state.removeSelection);
+  const toggleCheckedSelection = useAppStore((state) => state.toggleCheckedSelection);
 
   return (
-    <li className="hole-row">
+    <li className={isBatchEditing ? "hole-row batch-row" : "hole-row"}>
+      {isBatchEditing && (
+        <label className="batch-check" title={`Include ${selection.label} in batch edits`}>
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={() => toggleCheckedSelection(selection.id)}
+          />
+          <span className="sr-only">Include {selection.label} in batch edits</span>
+        </label>
+      )}
       <span className="swatch" style={{ background: selection.color }} />
       <input
         className="hole-name"

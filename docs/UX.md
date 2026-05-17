@@ -89,7 +89,6 @@ Two ways to set depth, used together:
 
 1. **Default depth field** in the holes panel (number input + slider), in mm. Sets the depth applied to newly created fills. Default: 2.0 mm.
 2. **Per-hole depth** in each row of the holes panel, with the same number+slider, defaulting to whatever the default depth was at creation time.
-3. **Visible fill depth** in the bulk tools area. Applies one depth value to every currently visible fill as a single undoable operation.
 
 When the user drags a depth slider, the corresponding fill solid animates its extrusion in real time. This is the "ah-ha" moment that makes the projection-past-the-floor concept tangible.
 
@@ -121,9 +120,17 @@ When selections exist, the panel includes compact bulk tools:
 
 - Undo and redo icon buttons for selection changes.
 - Select similar on plane.
-- A visible-fill depth control plus apply button.
 
-Undo/redo covers adding, removing, visibility changes, renames, per-fill depth changes, bulk select-similar, and bulk visible-depth edits. `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` or `Ctrl/Cmd+Y` activate undo/redo when focus is not inside an editable field.
+The panel title includes a batch edit button. Batch edit mode changes the panel header into a compact action bar:
+
+- Shows how many fills are checked for batch operations.
+- Provides All, None, and Invert helpers.
+- Adds checkboxes to fill rows.
+- Applies Set depth, Show, Hide, and Delete actions only to checked fills.
+- Confirms before deleting checked fills.
+- Stays in batch edit mode after applying an action so the user can perform several operations on the same subset.
+
+Undo/redo covers adding, removing, visibility changes, renames, per-fill depth changes, bulk select-similar, and batch edits. `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` or `Ctrl/Cmd+Y` activate undo/redo when focus is not inside an editable field.
 
 ## Export flow
 

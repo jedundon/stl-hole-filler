@@ -218,8 +218,8 @@ button {
 }
 
 .holes-panel {
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   border-left: 1px solid #d9dee5;
@@ -243,6 +243,90 @@ button {
   margin: 4px 0 0;
   color: #667085;
   font-size: 12px;
+}
+
+.batch-title {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid #e2e6ec;
+  background: #f7f9fc;
+}
+
+.batch-title-row,
+.batch-icon-actions,
+.batch-helper-row {
+  display: flex;
+  align-items: center;
+}
+
+.batch-title-row {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.batch-title h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.batch-title p {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 12px;
+}
+
+.batch-toolbar {
+  display: grid;
+  gap: 8px;
+}
+
+.batch-helper-row {
+  gap: 6px;
+}
+
+.batch-helper-row button,
+.compact-action-button {
+  min-height: 30px;
+  border: 1px solid #cfd8e6;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #273142;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.batch-helper-row button {
+  flex: 1;
+}
+
+.batch-helper-row button:hover,
+.compact-action-button:hover:not(:disabled) {
+  border-color: #96a5b8;
+  background: #f4f7fb;
+}
+
+.batch-depth-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62px;
+  gap: 8px;
+}
+
+.batch-icon-actions {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.icon-button.danger:hover:not(:disabled) {
+  border-color: #efaaa4;
+  background: #fff1f0;
+  color: #92251d;
+}
+
+.compact-action-button:disabled {
+  color: #a5adba;
+  cursor: not-allowed;
 }
 
 .default-depth {
@@ -298,18 +382,6 @@ button {
   cursor: not-allowed;
 }
 
-.bulk-depth {
-  display: grid;
-  gap: 8px;
-}
-
-.bulk-depth > span {
-  color: #475467;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
 .depth-control {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 84px;
@@ -352,6 +424,7 @@ button {
 
 .empty-panel {
   display: grid;
+  flex: 1;
   align-content: center;
   justify-items: center;
   gap: 14px;
@@ -394,6 +467,7 @@ button {
 .holes-list {
   display: grid;
   align-content: start;
+  flex: 1;
   gap: 10px;
   min-height: 0;
   margin: 0;
@@ -411,6 +485,25 @@ button {
   border: 1px solid #e0e5ec;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.hole-row.batch-row {
+  grid-template-columns: 22px 14px minmax(0, 1fr) 30px 30px;
+}
+
+.batch-check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 30px;
+}
+
+.batch-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #1f6feb;
+  cursor: pointer;
 }
 
 .swatch {

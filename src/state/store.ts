@@ -13,6 +13,8 @@ interface AppState {
   selectionHistoryPast: Selection[][];
   selectionHistoryFuture: Selection[][];
   selectionHistoryGroupKey: string | null;
+  isBatchEditing: boolean;
+  checkedSelectionIds: string[];
   hoverFaceIndex: number | null;
   defaultDepth: number;
   isLoading: boolean;
@@ -25,7 +27,15 @@ interface AppState {
   addSimilarSelectionsOnPlane: () => void;
   removeSelection: (id: string) => void;
   updateSelection: (id: string, patch: Partial<Selection>) => void;
-  applyDepthToVisibleSelections: (depth: number) => void;
+  enterBatchEditing: () => void;
+  exitBatchEditing: () => void;
+  toggleCheckedSelection: (id: string) => void;
+  selectAllSelections: () => void;
+  selectNoSelections: () => void;
+  invertCheckedSelections: () => void;
+  applyDepthToCheckedSelections: (depth: number) => void;
+  updateCheckedSelections: (patch: Partial<Selection>) => void;
+  removeCheckedSelections: () => void;
   undoSelectionChange: () => void;
   redoSelectionChange: () => void;
   setDefaultDepth: (depth: number) => void;
@@ -42,6 +52,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectionHistoryPast: [],
   selectionHistoryFuture: [],
   selectionHistoryGroupKey: null,
+  isBatchEditing: false,
+  checkedSelectionIds: [],
   hoverFaceIndex: null,
   defaultDepth: 2,
   isLoading: false,
@@ -63,6 +75,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectionHistoryPast: [],
       selectionHistoryFuture: [],
       selectionHistoryGroupKey: null,
+      isBatchEditing: false,
+      checkedSelectionIds: [],
       mesh: null,
       fileName: file.name,
       exportArtifact: null,
@@ -85,6 +99,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         selectionHistoryPast: [],
         selectionHistoryFuture: [],
         selectionHistoryGroupKey: null,
+        isBatchEditing: false,
+        checkedSelectionIds: [],
         fileName: null,
       });
       setToast(set, "Could not read that STL. Try a valid binary or ASCII STL.", "error");
@@ -135,7 +151,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (nextSelections.length === selections.length) {
       return;
     }
-    commitSelectionChange(set, get, nextSelections);
+    commitSelectionChange(set, get, nextSelections, null, { removeCheckedIds: [id] });
   },
 
   updateSelection(id, patch) {
@@ -158,23 +174,62 @@ export const useAppStore = create<AppState>((set, get) => ({
     commitSelectionChange(set, get, nextSelections, `update:${id}:${Object.keys(patch).sort().join(",")}`);
   },
 
-  applyDepthToVisibleSelections(depth) {
-    const nextDepth = clampDepth(depth);
-    const { selections } = get();
-    let changed = false;
-    const nextSelections = selections.map((selection) => {
-      if (!selection.visible || selection.depth === nextDepth) {
-        return selection;
-      }
-      changed = true;
-      return { ...selection, depth: nextDepth };
-    });
-    if (!changed) {
-      setToast(set, "No visible fills needed that depth change.", "info");
+  enterBatchEditing() {
+    set({ isBatchEditing: true, checkedSelectionIds: [] });
+  },
+
+  exitBatchEditing() {
+    set({ isBatchEditing: false, checkedSelectionIds: [] });
+  },
+
+  toggleCheckedSelection(id) {
+    const { checkedSelectionIds, selections } = get();
+    if (!selections.some((selection) => selection.id === id)) {
       return;
     }
-    commitSelectionChange(set, get, nextSelections);
-    setToast(set, `Applied ${nextDepth.toFixed(1)} mm depth to visible fills.`, "success");
+    set({
+      checkedSelectionIds: checkedSelectionIds.includes(id)
+        ? checkedSelectionIds.filter((checkedId) => checkedId !== id)
+        : [...checkedSelectionIds, id],
+    });
+  },
+
+  selectAllSelections() {
+    set({ checkedSelectionIds: get().selections.map((selection) => selection.id) });
+  },
+
+  selectNoSelections() {
+    set({ checkedSelectionIds: [] });
+  },
+
+  invertCheckedSelections() {
+    const { checkedSelectionIds, selections } = get();
+    const checkedIds = new Set(checkedSelectionIds);
+    set({
+      checkedSelectionIds: selections
+        .map((selection) => selection.id)
+        .filter((id) => !checkedIds.has(id)),
+    });
+  },
+
+  applyDepthToCheckedSelections(depth) {
+    const nextDepth = clampDepth(depth);
+    updateCheckedSelections(set, get, { depth: nextDepth }, "No checked fills needed that depth change.");
+  },
+
+  updateCheckedSelections(patch) {
+    updateCheckedSelections(set, get, patch, "No checked fills needed that change.");
+  },
+
+  removeCheckedSelections() {
+    const { checkedSelectionIds, selections } = get();
+    const checkedIds = new Set(checkedSelectionIds);
+    const nextSelections = selections.filter((selection) => !checkedIds.has(selection.id));
+    if (nextSelections.length === selections.length) {
+      return;
+    }
+    commitSelectionChange(set, get, nextSelections, null, { removeCheckedIds: checkedSelectionIds });
+    setToast(set, `Deleted ${selections.length - nextSelections.length} checked ${selections.length - nextSelections.length === 1 ? "fill" : "fills"}.`, "success");
   },
 
   undoSelectionChange() {
@@ -189,6 +244,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectionHistoryPast: selectionHistoryPast.slice(0, -1),
       selectionHistoryFuture: [selections, ...selectionHistoryFuture],
       selectionHistoryGroupKey: null,
+      checkedSelectionIds: pruneCheckedSelectionIds(get().checkedSelectionIds, previousSelections),
       exportArtifact: null,
     });
   },
@@ -205,6 +261,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectionHistoryPast: [...selectionHistoryPast, selections],
       selectionHistoryFuture: selectionHistoryFuture.slice(1),
       selectionHistoryGroupKey: null,
+      checkedSelectionIds: pruneCheckedSelectionIds(get().checkedSelectionIds, nextSelections),
       exportArtifact: null,
     });
   },
@@ -246,6 +303,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectionHistoryPast: [],
       selectionHistoryFuture: [],
       selectionHistoryGroupKey: null,
+      isBatchEditing: false,
+      checkedSelectionIds: [],
       hoverFaceIndex: null,
       warning: null,
       toast: null,
@@ -267,8 +326,10 @@ function commitSelectionChange(
   get: () => AppState,
   selections: Selection[],
   groupKey: string | null = null,
+  options: { removeCheckedIds?: string[] } = {},
 ) {
   const state = get();
+  const removedCheckedIds = new Set(options.removeCheckedIds ?? []);
   const selectionHistoryPast =
     groupKey && groupKey === state.selectionHistoryGroupKey
       ? state.selectionHistoryPast
@@ -279,8 +340,52 @@ function commitSelectionChange(
     selectionHistoryPast,
     selectionHistoryFuture: [],
     selectionHistoryGroupKey: groupKey,
+    checkedSelectionIds: pruneCheckedSelectionIds(
+      state.checkedSelectionIds.filter((id) => !removedCheckedIds.has(id)),
+      selections,
+    ),
     exportArtifact: null,
   });
+}
+
+function updateCheckedSelections(
+  set: (state: Partial<AppState>) => void,
+  get: () => AppState,
+  patch: Partial<Selection>,
+  unchangedMessage: string,
+) {
+  const { checkedSelectionIds, selections } = get();
+  const checkedIds = new Set(checkedSelectionIds);
+  if (checkedIds.size === 0) {
+    setToast(set, "Check at least one fill first.", "warning");
+    return;
+  }
+
+  let changed = false;
+  const nextSelections = selections.map((selection) => {
+    if (!checkedIds.has(selection.id)) {
+      return selection;
+    }
+    const nextSelection = { ...selection, ...patch };
+    const selectionChanged = Object.keys(patch).some((key) => {
+      const selectionKey = key as keyof Selection;
+      return selection[selectionKey] !== nextSelection[selectionKey];
+    });
+    changed = changed || selectionChanged;
+    return selectionChanged ? nextSelection : selection;
+  });
+
+  if (!changed) {
+    setToast(set, unchangedMessage, "info");
+    return;
+  }
+
+  commitSelectionChange(set, get, nextSelections);
+}
+
+function pruneCheckedSelectionIds(checkedSelectionIds: string[], selections: Selection[]) {
+  const selectionIds = new Set(selections.map((selection) => selection.id));
+  return checkedSelectionIds.filter((id) => selectionIds.has(id));
 }
 
 function clampDepth(value: number) {
