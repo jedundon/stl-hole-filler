@@ -100,8 +100,9 @@ Sensible bounds: 0.5 mm minimum (one nozzle layer worth), 20 mm maximum (probabl
 - Orbit: left-drag.
 - Pan: middle-drag or right-drag (configurable, default middle).
 - Zoom: scroll wheel.
-- Frame model: double-click empty space, or `F` key.
-- Reset view: `R` key.
+- Rotate view left/right 90 degrees: compact viewport buttons near the axis gizmo, or `Q` / `E` keys.
+- Frame model: viewport button, double-click empty space, or `F` key.
+- Reset view: viewport button, or `R` key.
 
 A small axis gizmo in the bottom-right corner shows orientation; clicking an axis snaps to that view.
 
