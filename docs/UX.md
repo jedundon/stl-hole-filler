@@ -89,6 +89,7 @@ Two ways to set depth, used together:
 
 1. **Default depth field** in the holes panel (number input + slider), in mm. Sets the depth applied to newly created fills. Default: 2.0 mm.
 2. **Per-hole depth** in each row of the holes panel, with the same number+slider, defaulting to whatever the default depth was at creation time.
+3. **Visible fill depth** in the bulk tools area. Applies one depth value to every currently visible fill as a single undoable operation.
 
 When the user drags a depth slider, the corresponding fill solid animates its extrusion in real time. This is the "ah-ha" moment that makes the projection-past-the-floor concept tangible.
 
@@ -116,6 +117,14 @@ Each row contains:
 
 Empty state for the panel (no selections): instructional text + a small animation showing a click on a recess.
 
+When selections exist, the panel includes compact bulk tools:
+
+- Undo and redo icon buttons for selection changes.
+- Select similar on plane.
+- A visible-fill depth control plus apply button.
+
+Undo/redo covers adding, removing, visibility changes, renames, per-fill depth changes, bulk select-similar, and bulk visible-depth edits. `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` or `Ctrl/Cmd+Y` activate undo/redo when focus is not inside an editable field.
+
 ## Export flow
 
 Clicking "Export 3MF":
@@ -133,7 +142,6 @@ The "New" button in the header clears the current session after a confirmation p
 
 ## What we deliberately don't include in MVP
 
-- **Undo/redo.** Tempting, but adds state-machine complexity. Defer until users ask. (Hole removal via the panel covers most needs.)
 - **Saving sessions.** No persistence. If the user closes the tab, they start over. This forces the app to be fast enough that starting over isn't painful.
 - **Hole auto-detection.** See PRD non-goals.
 - **Onboarding tour.** A single example file linked from the empty state ("Try with an example") is enough.

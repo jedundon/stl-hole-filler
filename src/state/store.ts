@@ -10,6 +10,9 @@ interface AppState {
   fileName: string | null;
   mesh: MeshData | null;
   selections: Selection[];
+  selectionHistoryPast: Selection[][];
+  selectionHistoryFuture: Selection[][];
+  selectionHistoryGroupKey: string | null;
   hoverFaceIndex: number | null;
   defaultDepth: number;
   isLoading: boolean;
@@ -22,6 +25,9 @@ interface AppState {
   addSimilarSelectionsOnPlane: () => void;
   removeSelection: (id: string) => void;
   updateSelection: (id: string, patch: Partial<Selection>) => void;
+  applyDepthToVisibleSelections: (depth: number) => void;
+  undoSelectionChange: () => void;
+  redoSelectionChange: () => void;
   setDefaultDepth: (depth: number) => void;
   setHoverFaceIndex: (faceIndex: number | null) => void;
   exportToFile: () => Promise<void>;
@@ -33,6 +39,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   fileName: null,
   mesh: null,
   selections: [],
+  selectionHistoryPast: [],
+  selectionHistoryFuture: [],
+  selectionHistoryGroupKey: null,
   hoverFaceIndex: null,
   defaultDepth: 2,
   isLoading: false,
@@ -47,7 +56,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
     revokeExportArtifact(get().exportArtifact);
-    set({ isLoading: true, warning: null, selections: [], mesh: null, fileName: file.name, exportArtifact: null });
+    set({
+      isLoading: true,
+      warning: null,
+      selections: [],
+      selectionHistoryPast: [],
+      selectionHistoryFuture: [],
+      selectionHistoryGroupKey: null,
+      mesh: null,
+      fileName: file.name,
+      exportArtifact: null,
+    });
     try {
       const raw = parseStl(await file.arrayBuffer());
       const mesh = normalizeMesh(raw);
@@ -59,7 +78,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       setToast(set, "Model loaded. Click a recessed flat area to add a fill.", "success");
     } catch (error) {
       console.error(error);
-      set({ isLoading: false, mesh: null, selections: [], fileName: null });
+      set({
+        isLoading: false,
+        mesh: null,
+        selections: [],
+        selectionHistoryPast: [],
+        selectionHistoryFuture: [],
+        selectionHistoryGroupKey: null,
+        fileName: null,
+      });
       setToast(set, "Could not read that STL. Try a valid binary or ASCII STL.", "error");
     }
   },
@@ -72,8 +99,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const existing = selections.find((selection) => selection.faceIndices.includes(faceIndex));
     if (existing) {
-      revokeExportArtifact(get().exportArtifact);
-      set({ selections: selections.filter((selection) => selection.id !== existing.id), exportArtifact: null });
+      commitSelectionChange(set, get, selections.filter((selection) => selection.id !== existing.id));
       return;
     }
 
@@ -82,8 +108,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       setToast(set, "Could not find a recessed region there. Try the center of a flat-bottomed pocket.", "warning");
       return;
     }
-    revokeExportArtifact(get().exportArtifact);
-    set({ selections: [...selections, selection], exportArtifact: null });
+    commitSelectionChange(set, get, [...selections, selection]);
   },
 
   addSimilarSelectionsOnPlane() {
@@ -100,23 +125,87 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    revokeExportArtifact(get().exportArtifact);
-    set({ selections: [...selections, ...matches], exportArtifact: null });
+    commitSelectionChange(set, get, [...selections, ...matches]);
     setToast(set, `Added ${matches.length} similar ${matches.length === 1 ? "fill" : "fills"} on this plane.`, "success");
   },
 
   removeSelection(id) {
-    revokeExportArtifact(get().exportArtifact);
-    set({ selections: get().selections.filter((selection) => selection.id !== id) });
+    const { selections } = get();
+    const nextSelections = selections.filter((selection) => selection.id !== id);
+    if (nextSelections.length === selections.length) {
+      return;
+    }
+    commitSelectionChange(set, get, nextSelections);
   },
 
   updateSelection(id, patch) {
+    const { selections } = get();
+    let changed = false;
+    const nextSelections = selections.map((selection) => {
+      if (selection.id !== id) {
+        return selection;
+      }
+      const nextSelection = { ...selection, ...patch };
+      changed = Object.keys(patch).some((key) => {
+        const selectionKey = key as keyof Selection;
+        return selection[selectionKey] !== nextSelection[selectionKey];
+      });
+      return changed ? nextSelection : selection;
+    });
+    if (!changed) {
+      return;
+    }
+    commitSelectionChange(set, get, nextSelections, `update:${id}:${Object.keys(patch).sort().join(",")}`);
+  },
+
+  applyDepthToVisibleSelections(depth) {
+    const nextDepth = clampDepth(depth);
+    const { selections } = get();
+    let changed = false;
+    const nextSelections = selections.map((selection) => {
+      if (!selection.visible || selection.depth === nextDepth) {
+        return selection;
+      }
+      changed = true;
+      return { ...selection, depth: nextDepth };
+    });
+    if (!changed) {
+      setToast(set, "No visible fills needed that depth change.", "info");
+      return;
+    }
+    commitSelectionChange(set, get, nextSelections);
+    setToast(set, `Applied ${nextDepth.toFixed(1)} mm depth to visible fills.`, "success");
+  },
+
+  undoSelectionChange() {
+    const { selectionHistoryPast, selectionHistoryFuture, selections } = get();
+    const previousSelections = selectionHistoryPast[selectionHistoryPast.length - 1];
+    if (!previousSelections) {
+      return;
+    }
     revokeExportArtifact(get().exportArtifact);
     set({
+      selections: previousSelections,
+      selectionHistoryPast: selectionHistoryPast.slice(0, -1),
+      selectionHistoryFuture: [selections, ...selectionHistoryFuture],
+      selectionHistoryGroupKey: null,
       exportArtifact: null,
-      selections: get().selections.map((selection) =>
-        selection.id === id ? { ...selection, ...patch } : selection,
-      ),
+    });
+  },
+
+  redoSelectionChange() {
+    const { selectionHistoryPast, selectionHistoryFuture, selections } = get();
+    const nextSelections = selectionHistoryFuture[0];
+    if (!nextSelections) {
+      return;
+    }
+    revokeExportArtifact(get().exportArtifact);
+    set({
+      selections: nextSelections,
+      selectionHistoryPast: [...selectionHistoryPast, selections],
+      selectionHistoryFuture: selectionHistoryFuture.slice(1),
+      selectionHistoryGroupKey: null,
+      exportArtifact: null,
     });
   },
 
@@ -154,6 +243,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       fileName: null,
       mesh: null,
       selections: [],
+      selectionHistoryPast: [],
+      selectionHistoryFuture: [],
+      selectionHistoryGroupKey: null,
       hoverFaceIndex: null,
       warning: null,
       toast: null,
@@ -167,6 +259,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ toast: null });
   },
 }));
+
+const MAX_SELECTION_HISTORY = 50;
+
+function commitSelectionChange(
+  set: (state: Partial<AppState>) => void,
+  get: () => AppState,
+  selections: Selection[],
+  groupKey: string | null = null,
+) {
+  const state = get();
+  const selectionHistoryPast =
+    groupKey && groupKey === state.selectionHistoryGroupKey
+      ? state.selectionHistoryPast
+      : [...state.selectionHistoryPast.slice(-(MAX_SELECTION_HISTORY - 1)), state.selections];
+  revokeExportArtifact(state.exportArtifact);
+  set({
+    selections,
+    selectionHistoryPast,
+    selectionHistoryFuture: [],
+    selectionHistoryGroupKey: groupKey,
+    exportArtifact: null,
+  });
+}
 
 function clampDepth(value: number) {
   return Math.max(0.1, Math.min(40, Number.isFinite(value) ? value : 2));

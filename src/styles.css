@@ -260,8 +260,16 @@ button {
 }
 
 .bulk-actions {
+  display: grid;
+  gap: 10px;
   padding: 12px 18px;
   border-bottom: 1px solid #e2e6ec;
+}
+
+.history-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .bulk-action-button {
@@ -280,9 +288,26 @@ button {
   gap: 8px;
 }
 
-.bulk-action-button:hover {
+.bulk-action-button:hover:not(:disabled) {
   border-color: #96a5b8;
   background: #f4f7fb;
+}
+
+.bulk-action-button:disabled {
+  color: #a5adba;
+  cursor: not-allowed;
+}
+
+.bulk-depth {
+  display: grid;
+  gap: 8px;
+}
+
+.bulk-depth > span {
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .depth-control {
