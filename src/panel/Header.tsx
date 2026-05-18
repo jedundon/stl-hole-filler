@@ -5,9 +5,10 @@ import { useAppStore } from "../state/store";
 export function Header() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileName = useAppStore((state) => state.fileName);
+  const itemCount = useAppStore((state) => state.items.length);
   const reset = useAppStore((state) => state.reset);
-  const loadFile = useAppStore((state) => state.loadFile);
-  const hasModel = useAppStore((state) => Boolean(state.mesh));
+  const loadFiles = useAppStore((state) => state.loadFiles);
+  const hasItems = useAppStore((state) => state.items.length > 0);
 
   return (
     <header className="header">
@@ -15,7 +16,7 @@ export function Header() {
         <div className="brand-mark">SF</div>
         <div>
           <h1>STL Hole Filler</h1>
-          <p>{fileName ?? "No model loaded"}</p>
+          <p>{fileName ? `${fileName}${itemCount > 1 ? ` + ${itemCount - 1} more` : ""}` : "No model loaded"}</p>
         </div>
       </div>
       <div className="header-actions">
@@ -25,9 +26,9 @@ export function Header() {
         <button
           className="icon-button"
           title="New"
-          disabled={!hasModel}
+          disabled={!hasItems}
           onClick={() => {
-            if (!hasModel || window.confirm("Start over? You'll lose your current selections.")) {
+            if (!hasItems || window.confirm("Start over? You'll lose your current batch and selections.")) {
               reset();
             }
           }}
@@ -40,10 +41,10 @@ export function Header() {
         className="sr-only"
         type="file"
         accept=".stl,model/stl"
+        multiple
         onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) {
-            void loadFile(file);
+          if (event.target.files?.length) {
+            void loadFiles(event.target.files);
           }
           event.currentTarget.value = "";
         }}

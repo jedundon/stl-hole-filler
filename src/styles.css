@@ -264,6 +264,111 @@ button {
   background: #fbfcfd;
 }
 
+.queue-section {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid #e2e6ec;
+  background: #f7f9fc;
+}
+
+.queue-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.queue-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.queue-header p {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 12px;
+}
+
+.profile-pill {
+  max-width: 140px;
+  padding: 5px 7px;
+  border: 1px solid #b8c8df;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #1f4d88;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.queue-list {
+  display: grid;
+  max-height: 170px;
+  overflow: auto;
+  gap: 6px;
+}
+
+.queue-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 1px solid #d8e0ea;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #273142;
+  cursor: pointer;
+  gap: 8px;
+  text-align: left;
+}
+
+.queue-item:hover {
+  border-color: #96a5b8;
+  background: #f4f7fb;
+}
+
+.queue-item.active {
+  border-color: #7da6dc;
+  background: #eef6ff;
+}
+
+.queue-file-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-status {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.status-error {
+  color: #92251d;
+}
+
+.status-reviewed,
+.status-exported {
+  color: #17633a;
+}
+
+.profile-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.profile-actions .bulk-action-button {
+  min-height: 34px;
+  font-size: 12px;
+}
+
 .panel-title {
   display: flex;
   align-items: center;
@@ -589,6 +694,15 @@ button {
 .export-button:disabled {
   background: #aeb8c6;
   cursor: not-allowed;
+}
+
+.export-button.secondary {
+  margin-top: 0;
+  background: #2f4b68;
+}
+
+.export-button.secondary:hover:not(:disabled) {
+  background: #263d55;
 }
 
 .download-link {

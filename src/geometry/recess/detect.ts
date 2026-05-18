@@ -1,4 +1,13 @@
-import type { MeshData, Selection } from "../../types";
+import type {
+  DetectionProfile,
+  DetectionProfileSample,
+  DetectionRule,
+  MeshData,
+  ProfileDetectionResult,
+  RecessCandidate,
+  RecessCandidateMetrics,
+  Selection,
+} from "../../types";
 import { colorForIndex } from "../../lib/palette";
 import { dot, getFaceNormal, getVertex, sub, type Vec3 } from "../vector";
 import { edgeKey } from "../stl/normalize";
@@ -9,6 +18,97 @@ const MIN_BOUNDARY_ANGLE = (28 * Math.PI) / 180;
 const MAX_REGION_FACES = 25000;
 const MIN_PLANE_TOLERANCE = 0.025;
 const PLANE_MATCH_COS_TOLERANCE = Math.cos((8 * Math.PI) / 180);
+
+export function detectRecessCandidates(mesh: MeshData, defaultDepth: number): RecessCandidate[] {
+  const visited = new Set<number>();
+  const candidates: RecessCandidate[] = [];
+
+  for (let face = 0; face < mesh.triangleCount; face += 1) {
+    if (visited.has(face)) {
+      continue;
+    }
+
+    const faceIndices = floodPlanarRegion(mesh, face);
+    faceIndices.forEach((regionFace) => visited.add(regionFace));
+    const selection = buildSelectionFromRegion(mesh, faceIndices, candidates.length, defaultDepth);
+    if (selection) {
+      candidates.push({ selection, metrics: measureCandidate(mesh, selection) });
+    }
+  }
+
+  return candidates;
+}
+
+export function buildDetectionProfile(samples: DetectionProfileSample[]): DetectionProfile | null {
+  if (samples.length === 0) {
+    return null;
+  }
+
+  const rules = samples.map(({ mesh, selection }) => {
+    const metrics = measureCandidate(mesh, selection);
+    return {
+      id: crypto.randomUUID(),
+      area: expandedRange(metrics.area, 0.35, 0.08),
+      depth: expandedRange(metrics.depth, 0.55, 0.08),
+      boundaryAngle: expandedRange(metrics.boundaryAngle, 0.3, (10 * Math.PI) / 180),
+      loopCount: metrics.loopCount,
+      fillDepth: selection.depth,
+    };
+  });
+
+  const loopCounts = [...new Set(rules.map((rule) => rule.loopCount))].sort((a, b) => a - b);
+  return {
+    id: crypto.randomUUID(),
+    sourceSelectionCount: samples.length,
+    rules,
+    createdAt: new Date().toISOString(),
+    summary: `${samples.length} reviewed ${samples.length === 1 ? "fill" : "fills"}, ${loopCounts.length} loop ${loopCounts.length === 1 ? "shape" : "shapes"}`,
+  };
+}
+
+export function applyDetectionProfile(
+  mesh: MeshData,
+  profile: DetectionProfile,
+  existingSelections: Selection[],
+): ProfileDetectionResult {
+  const existingFaces = new Set(existingSelections.flatMap((selection) => selection.faceIndices));
+  const selections: Selection[] = [];
+  const warnings: string[] = [];
+  const candidates = detectRecessCandidates(mesh, averageProfileDepth(profile));
+
+  candidates.forEach((candidate) => {
+    if (candidate.selection.faceIndices.some((face) => existingFaces.has(face))) {
+      return;
+    }
+
+    const matchingRules = profile.rules.filter((rule) => matchesRule(candidate.metrics, rule));
+    if (matchingRules.length === 0) {
+      return;
+    }
+    if (matchingRules.length > 1) {
+      warnings.push("One recessed pocket matched multiple profile rules; the first matching reviewed fill was used.");
+    }
+
+    const rule = matchingRules[0];
+    const index = existingSelections.length + selections.length;
+    selections.push({
+      ...candidate.selection,
+      id: crypto.randomUUID(),
+      label: `Hole ${index + 1}`,
+      depth: rule.fillDepth,
+      color: colorForIndex(index),
+      visible: true,
+    });
+  });
+
+  if (candidates.length === 0) {
+    warnings.push("No recessed planar pockets were found.");
+  } else if (selections.length === 0) {
+    warnings.push(`Found ${candidates.length} recessed ${candidates.length === 1 ? "candidate" : "candidates"}, but none matched the current profile.`);
+  }
+
+  return { selections, warnings };
+}
 
 export function detectRecessSelection(
   mesh: MeshData,
@@ -293,6 +393,69 @@ function averageCentroid(mesh: MeshData, faceIndices: number[]): Vec3 {
 function averageSignedDistance(mesh: MeshData, faceIndices: number[], origin: Vec3, normal: Vec3) {
   const center = averageCentroid(mesh, faceIndices);
   return dot(sub(center, origin), normal);
+}
+
+function measureCandidate(mesh: MeshData, selection: Selection): RecessCandidateMetrics {
+  return {
+    area: regionArea(mesh, selection.faceIndices),
+    depth: openingDepth(mesh, selection),
+    boundaryAngle: boundarySharpness(mesh, selection.faceIndices),
+    loopCount: 1 + selection.loop.holes.length,
+  };
+}
+
+function regionArea(mesh: MeshData, faceIndices: number[]) {
+  let area = 0;
+  faceIndices.forEach((face) => {
+    const a = getVertex(mesh.positions, mesh.indices[face * 3]);
+    const b = getVertex(mesh.positions, mesh.indices[face * 3 + 1]);
+    const c = getVertex(mesh.positions, mesh.indices[face * 3 + 2]);
+    const ab = sub(b, a);
+    const ac = sub(c, a);
+    const cross: Vec3 = [
+      ab[1] * ac[2] - ab[2] * ac[1],
+      ab[2] * ac[0] - ab[0] * ac[2],
+      ab[0] * ac[1] - ab[1] * ac[0],
+    ];
+    area += Math.hypot(cross[0], cross[1], cross[2]) * 0.5;
+  });
+  return area;
+}
+
+function openingDepth(mesh: MeshData, selection: Selection) {
+  const origin = selection.plane.origin as Vec3;
+  const normal = selection.plane.normal as Vec3;
+  const distances = selection.faceIndices.map((face) => {
+    const vertex = getVertex(mesh.positions, mesh.indices[face * 3]);
+    return Math.abs(dot(sub(vertex, origin), normal));
+  });
+  return distances.reduce((sum, distance) => sum + distance, 0) / Math.max(distances.length, 1);
+}
+
+function expandedRange(value: number, percent: number, minimumPadding: number) {
+  const padding = Math.max(Math.abs(value) * percent, minimumPadding);
+  return {
+    min: Math.max(0, value - padding),
+    max: value + padding,
+  };
+}
+
+function matchesRule(metrics: RecessCandidateMetrics, rule: DetectionRule) {
+  return (
+    metrics.loopCount === rule.loopCount &&
+    inRange(metrics.area, rule.area) &&
+    inRange(metrics.depth, rule.depth) &&
+    inRange(metrics.boundaryAngle, rule.boundaryAngle)
+  );
+}
+
+function inRange(value: number, range: { min: number; max: number }) {
+  return value >= range.min && value <= range.max;
+}
+
+function averageProfileDepth(profile: DetectionProfile) {
+  const total = profile.rules.reduce((sum, rule) => sum + rule.fillDepth, 0);
+  return total / Math.max(profile.rules.length, 1);
 }
 
 function getFaceCentroid(mesh: MeshData, faceIndex: number): Vec3 {

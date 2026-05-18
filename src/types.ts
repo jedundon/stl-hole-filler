@@ -35,6 +35,71 @@ export interface Selection {
   visible: boolean;
 }
 
+export type BatchItemStatus = "loading" | "ready" | "detecting" | "review" | "reviewed" | "exported" | "error";
+
+export interface SelectionHistory {
+  past: Selection[][];
+  future: Selection[][];
+  groupKey: string | null;
+}
+
+export interface BatchItem {
+  id: string;
+  fileName: string;
+  mesh: MeshData | null;
+  selections: Selection[];
+  history: SelectionHistory;
+  checkedSelectionIds: string[];
+  status: BatchItemStatus;
+  warnings: string[];
+  error: string | null;
+  exportArtifact: ExportArtifact | null;
+}
+
+export interface DetectionProfile {
+  id: string;
+  sourceSelectionCount: number;
+  rules: DetectionRule[];
+  createdAt: string;
+  summary: string;
+}
+
+export interface DetectionRule {
+  id: string;
+  area: Range;
+  depth: Range;
+  boundaryAngle: Range;
+  loopCount: number;
+  fillDepth: number;
+}
+
+export interface Range {
+  min: number;
+  max: number;
+}
+
+export interface DetectionProfileSample {
+  mesh: MeshData;
+  selection: Selection;
+}
+
+export interface RecessCandidate {
+  selection: Selection;
+  metrics: RecessCandidateMetrics;
+}
+
+export interface RecessCandidateMetrics {
+  area: number;
+  depth: number;
+  boundaryAngle: number;
+  loopCount: number;
+}
+
+export interface ProfileDetectionResult {
+  selections: Selection[];
+  warnings: string[];
+}
+
 export interface FillMesh {
   vertices: number[];
   triangles: number[];

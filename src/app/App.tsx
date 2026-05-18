@@ -11,16 +11,16 @@ export function App() {
   const isLoading = useAppStore((state) => state.isLoading);
   const warning = useAppStore((state) => state.warning);
   const toast = useAppStore((state) => state.toast);
-  const loadFile = useAppStore((state) => state.loadFile);
+  const loadFiles = useAppStore((state) => state.loadFiles);
 
   const handleDrop = useCallback(
     (files: FileList | File[]) => {
       const file = Array.from(files)[0];
       if (file) {
-        void loadFile(file);
+        void loadFiles(files);
       }
     },
-    [loadFile],
+    [loadFiles],
   );
 
   return (

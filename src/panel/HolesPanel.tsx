@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import {
+  CheckCircle2,
   CheckSquare,
   CopyPlus,
   Download,
   Eye,
   EyeOff,
+  FileArchive,
   RotateCcw,
   RotateCw,
   Trash2,
+  Wand2,
   X,
 } from "lucide-react";
 import { useAppStore } from "../state/store";
@@ -15,10 +18,18 @@ import { DepthControl } from "./DepthControl";
 import { HoleRow } from "./HoleRow";
 
 export function HolesPanel() {
+  const items = useAppStore((state) => state.items);
+  const activeItemId = useAppStore((state) => state.activeItemId);
+  const profile = useAppStore((state) => state.profile);
   const selections = useAppStore((state) => state.selections);
   const defaultDepth = useAppStore((state) => state.defaultDepth);
   const setDefaultDepth = useAppStore((state) => state.setDefaultDepth);
+  const setActiveItem = useAppStore((state) => state.setActiveItem);
+  const buildProfileFromSelections = useAppStore((state) => state.buildProfileFromSelections);
+  const runBatchDetection = useAppStore((state) => state.runBatchDetection);
+  const markActiveItemReviewed = useAppStore((state) => state.markActiveItemReviewed);
   const exportToFile = useAppStore((state) => state.exportToFile);
+  const exportAllToZip = useAppStore((state) => state.exportAllToZip);
   const addSimilarSelectionsOnPlane = useAppStore((state) => state.addSimilarSelectionsOnPlane);
   const undoSelectionChange = useAppStore((state) => state.undoSelectionChange);
   const redoSelectionChange = useAppStore((state) => state.redoSelectionChange);
@@ -35,11 +46,16 @@ export function HolesPanel() {
   const canUndo = useAppStore((state) => state.selectionHistoryPast.length > 0);
   const canRedo = useAppStore((state) => state.selectionHistoryFuture.length > 0);
   const isExporting = useAppStore((state) => state.isExporting);
+  const isDetecting = useAppStore((state) => state.isDetecting);
+  const isBatchExporting = useAppStore((state) => state.isBatchExporting);
   const hasModel = useAppStore((state) => Boolean(state.mesh));
   const exportArtifact = useAppStore((state) => state.exportArtifact);
+  const batchExportArtifact = useAppStore((state) => state.batchExportArtifact);
   const [bulkDepth, setBulkDepth] = useState(defaultDepth);
   const checkedCount = checkedSelectionIds.length;
   const hasCheckedSelections = checkedCount > 0;
+  const totalSelections = items.reduce((sum, item) => sum + item.selections.length, 0);
+  const reviewedCount = items.filter((item) => item.status === "reviewed" || item.status === "exported").length;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -79,6 +95,60 @@ export function HolesPanel() {
 
   return (
     <aside className="holes-panel">
+      {items.length > 0 && (
+        <section className="queue-section" aria-label="Batch queue">
+          <div className="queue-header">
+            <div>
+              <h2>Batch</h2>
+              <p>{items.length === 1 ? "1 file" : `${items.length} files`} / {reviewedCount} reviewed</p>
+            </div>
+            {profile && <span className="profile-pill">{profile.summary}</span>}
+          </div>
+          <div className="queue-list">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={item.id === activeItemId ? "queue-item active" : "queue-item"}
+                onClick={() => setActiveItem(item.id)}
+              >
+                <span className="queue-file-name">{item.fileName}</span>
+                <span className={`queue-status status-${item.status}`}>
+                  {item.status}
+                  {item.selections.length > 0 ? ` / ${item.selections.length}` : ""}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="profile-actions">
+            <button
+              className="bulk-action-button"
+              disabled={totalSelections === 0}
+              onClick={buildProfileFromSelections}
+            >
+              <Wand2 size={16} />
+              <span>Build profile</span>
+            </button>
+            <button
+              className="bulk-action-button"
+              disabled={!profile || isDetecting}
+              onClick={() => void runBatchDetection()}
+            >
+              <CopyPlus size={16} />
+              <span>{isDetecting ? "Detecting..." : "Run batch"}</span>
+            </button>
+            <button
+              className="bulk-action-button"
+              disabled={selections.length === 0}
+              onClick={markActiveItemReviewed}
+            >
+              <CheckCircle2 size={16} />
+              <span>Mark reviewed</span>
+            </button>
+          </div>
+        </section>
+      )}
+
       {isBatchEditing ? (
         <div className="batch-title">
           <div className="batch-title-row">
@@ -237,6 +307,26 @@ export function HolesPanel() {
             Download {exportArtifact.fileName} ({formatBytes(exportArtifact.byteLength)})
           </span>
         </a>
+      )}
+      {items.length > 1 && (
+        <>
+          <button
+            className="export-button secondary"
+            disabled={reviewedCount === 0 || isBatchExporting}
+            onClick={() => void exportAllToZip()}
+          >
+            <FileArchive size={18} />
+            <span>{isBatchExporting ? "Building ZIP..." : "Export reviewed ZIP"}</span>
+          </button>
+          {batchExportArtifact && (
+            <a className="download-link" href={batchExportArtifact.url} download={batchExportArtifact.fileName}>
+              <Download size={16} />
+              <span>
+                Download {batchExportArtifact.fileName} ({formatBytes(batchExportArtifact.byteLength)})
+              </span>
+            </a>
+          )}
+        </>
       )}
     </aside>
   );
