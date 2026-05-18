@@ -4,6 +4,9 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   base: "/stl-hole-filler/",
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1100,
+  },
   server: {
     host: "127.0.0.1",
     port: 5173,
